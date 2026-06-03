@@ -771,6 +771,16 @@ let workouts=JSON.parse(localStorage.getItem("wahsh_workouts")||"[]");
 let nutritionLog=JSON.parse(localStorage.getItem("wahsh_nutrition")||"{}");
 let measurements=JSON.parse(localStorage.getItem("wahsh_measurements")||"[]");
 let customTemplates=JSON.parse(localStorage.getItem("wahsh_templates")||"[]");
+// Merge all templates into one ordered list stored in localStorage
+function getAllTemplates(){
+  const stored=localStorage.getItem("wahsh_all_templates");
+  if(stored) return JSON.parse(stored);
+  // First run: seed with prebuilt + custom
+  const all=[...PREBUILT_TEMPLATES.map(t=>({...t,builtin:true})),...customTemplates];
+  localStorage.setItem("wahsh_all_templates",JSON.stringify(all));
+  return all;
+}
+function saveAllTemplates(arr){localStorage.setItem("wahsh_all_templates",JSON.stringify(arr));}
 let settings=JSON.parse(localStorage.getItem("wahsh_settings")||'{"name":"Thamer","age":35,"gender":"male","activity":1.55,"activityLabel":"Moderately active","goal":"maintain"}');
 let activeWorkout=null,timerInterval=null,timerSecs=0,paused=false;
 let restInterval=null,restRemaining=0;
@@ -1449,36 +1459,75 @@ function openTemplates(){document.getElementById("template-modal").classList.add
 function closeTemplateModal(){document.getElementById("template-modal").classList.remove("open");}
 
 function renderTemplateList(){
-  const builtin=PREBUILT_TEMPLATES.map(t=>({...t,builtin:true}));
-  const custom=customTemplates.map((t,i)=>({...t,builtin:false,customIdx:i}));
-  const all=[...builtin,...custom];
+  const all=getAllTemplates();
   document.getElementById("template-list").innerHTML=all.map((t,i)=>`
-    <div class="template-card" style="position:relative;">
-      <div style="display:flex;justify-content:space-between;align-items:center;" onclick="useTemplate(${i})">
-        <div style="flex:1;min-width:0;">
+    <div style="position:relative;overflow:hidden;border-bottom:1px solid var(--border);">
+      <div style="position:absolute;right:0;top:0;bottom:0;width:80px;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;">
+        <i class="ti ti-trash"></i>
+      </div>
+      <div class="drag-item" id="tmpl-${i}" draggable="true"
+        ondragstart="tmplDragStart(${i})"
+        ondragover="tmplDragOver(event,${i})"
+        ondrop="tmplDrop(event,${i})"
+        ondragend="tmplDragEnd()"
+        style="padding:12px 4px;background:var(--bg);position:relative;z-index:1;touch-action:pan-y;transition:transform 0.2s ease;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <i class="ti ti-grip-vertical drag-handle" style="flex-shrink:0;"></i>
+        <div style="flex:1;min-width:0;cursor:pointer;" onclick="useTemplate(${i})">
           <div class="template-name">${t.name}</div>
           <div class="template-meta">${t.exercises.length} exercises${t.builtin?" · Built-in":""}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          ${!t.builtin?`<button class="btn-ghost" style="padding:6px;" onclick="event.stopPropagation();showTemplateMenu(${t.customIdx},this)"><i class="ti ti-dots-vertical" style="font-size:18px;"></i></button>`:""}
-          <i class="ti ti-player-play" style="color:var(--green);font-size:20px;"></i>
-        </div>
+        <button class="btn-ghost" style="padding:6px;flex-shrink:0;"
+          onclick="event.stopPropagation();showTemplateMenu(${i},this)">
+          <i class="ti ti-dots-vertical" style="font-size:18px;"></i>
+        </button>
+      </div>
       </div>
     </div>`).join("");
+
+  // Attach swipe-to-delete on template items
+  setTimeout(()=>{
+    all.forEach((_,i)=>{
+      const card=document.getElementById("tmpl-"+i);
+      if(!card)return;
+      let sx=0,dx=0;
+      card.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;dx=0;},{passive:true});
+      card.addEventListener("touchmove",e=>{
+        dx=e.touches[0].clientX-sx;
+        if(dx<0)card.style.transform=`translateX(${Math.max(dx,-80)}px)`;
+      },{passive:true});
+      card.addEventListener("touchend",()=>{
+        if(dx<-60){deleteTemplate(i);}
+        else{card.style.transform="";}
+      });
+    });
+  },50);
 }
 
-function showTemplateMenu(customIdx,btn){
-  // Remove existing menu
+// Drag reorder for templates
+let tmplDragIdx=null;
+function tmplDragStart(i){tmplDragIdx=i;setTimeout(()=>{const el=document.getElementById("tmpl-"+i);if(el)el.classList.add("dragging");},0);}
+function tmplDragOver(e,i){e.preventDefault();}
+function tmplDrop(e,i){
+  e.preventDefault();
+  if(tmplDragIdx===null||tmplDragIdx===i)return;
+  const all=getAllTemplates();
+  const moved=all.splice(tmplDragIdx,1)[0];
+  all.splice(i,0,moved);
+  saveAllTemplates(all);
+  tmplDragIdx=null;
+  renderTemplateList();
+}
+function tmplDragEnd(){tmplDragIdx=null;document.querySelectorAll(".drag-item").forEach(el=>el.classList.remove("dragging"));}
+
+function showTemplateMenu(i,btn){
   document.querySelectorAll(".template-menu").forEach(m=>m.remove());
   const menu=document.createElement("div");
   menu.className="template-menu";
   menu.style.cssText="position:fixed;background:var(--bg);border:1px solid var(--border2);border-radius:12px;box-shadow:var(--shadow-lg);z-index:400;padding:6px;min-width:160px;";
   menu.innerHTML=`
-    <button onclick="renameTemplate(${customIdx})" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:14px;cursor:pointer;border-radius:8px;color:var(--text);">
+    <button onclick="renameTemplate(${i})" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:14px;cursor:pointer;border-radius:8px;color:var(--text);font-family:inherit;">
       <i class="ti ti-pencil" style="margin-right:8px;"></i>Rename
-    </button>
-    <button onclick="deleteTemplate(${customIdx})" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:14px;cursor:pointer;border-radius:8px;color:var(--red);">
-      <i class="ti ti-trash" style="margin-right:8px;"></i>Delete
     </button>`;
   const rect=btn.getBoundingClientRect();
   menu.style.top=(rect.bottom+4)+"px";
@@ -1487,25 +1536,41 @@ function showTemplateMenu(customIdx,btn){
   setTimeout(()=>document.addEventListener("click",()=>menu.remove(),{once:true}),10);
 }
 
-function renameTemplate(customIdx){
+function renameTemplate(i){
   document.querySelectorAll(".template-menu").forEach(m=>m.remove());
-  const t=customTemplates[customIdx];
-  const newName=prompt("Rename routine:",t.name);
+  const all=getAllTemplates();
+  const newName=prompt("Rename routine:",all[i].name);
   if(newName&&newName.trim()){
-    customTemplates[customIdx].name=newName.trim();
-    saveTmpls();renderTemplateList();showToast("Renamed ✓");
+    all[i].name=newName.trim();
+    saveAllTemplates(all);
+    // Sync back to customTemplates if custom
+    if(!all[i].builtin){
+      const ci=customTemplates.findIndex(t=>t.name===all[i].name||true);
+      customTemplates=all.filter(t=>!t.builtin);
+      saveTmpls();
+    }
+    renderTemplateList();showToast("Renamed ✓");
   }
 }
 
-function deleteTemplate(customIdx){
+function deleteTemplate(i){
   document.querySelectorAll(".template-menu").forEach(m=>m.remove());
-  customTemplates.splice(customIdx,1);
-  saveTmpls();renderTemplateList();showToast("Routine deleted");
+  const all=getAllTemplates();
+  const t=all[i];
+  if(!confirm("Delete \""+t.name+"\"?"))return;
+  all.splice(i,1);
+  saveAllTemplates(all);
+  customTemplates=all.filter(t=>!t.builtin);
+  saveTmpls();
+  renderTemplateList();showToast("Deleted");
 }
 
 function useTemplate(i){
-  const all=[...PREBUILT_TEMPLATES,...customTemplates];
-  const t=all[i];closeTemplateModal();startWorkout(t.exercises);
+  const all=getAllTemplates();
+  const t=all[i];
+  if(!t)return;
+  closeTemplateModal();
+  startWorkout(t.exercises);
   document.getElementById("workout-name").value=t.name;
 }
 
@@ -1606,15 +1671,21 @@ function saveRoutine(){
   const name=document.getElementById("routine-name").value.trim();
   if(!name){showToast("Give your routine a name");return;}
   if(!routineExercises.length){showToast("Add at least one exercise");return;}
-  customTemplates.push({name,exercises:[...routineExercises],tag:"Custom"});
-  saveTmpls();closeBuildModal();showToast("Routine saved! ✓");
+  const newT={name,exercises:[...routineExercises],tag:"Custom",builtin:false};
+  customTemplates.push(newT);
+  saveTmpls();
+  const all=getAllTemplates();all.push(newT);saveAllTemplates(all);
+  closeBuildModal();showToast("Routine saved! ✓");
 }
 function saveAndStartRoutine(){
   const name=document.getElementById("routine-name").value.trim();
   if(!name){showToast("Give your routine a name");return;}
   if(!routineExercises.length){showToast("Add at least one exercise");return;}
-  customTemplates.push({name,exercises:[...routineExercises],tag:"Custom"});
-  saveTmpls();closeBuildModal();
+  const newT={name,exercises:[...routineExercises],tag:"Custom",builtin:false};
+  customTemplates.push(newT);
+  saveTmpls();
+  const all=getAllTemplates();all.push(newT);saveAllTemplates(all);
+  closeBuildModal();
   startWorkout([...routineExercises]);
   document.getElementById("workout-name").value=name;
   showToast("Starting "+name+"!");
