@@ -164,6 +164,8 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .cal-day{width:100%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:var(--text2);cursor:pointer;border:none;background:none;transition:var(--tr);}
 .cal-day:active{transform:scale(0.88);}
 .cal-day.has-workout{background:var(--green);color:#fff;font-weight:700;box-shadow:0 2px 6px rgba(24,168,112,0.3);}
+.cal-day.planned{border:2px solid var(--green);color:var(--green);font-weight:700;}
+.cal-day.planned.has-workout{background:var(--green);color:#fff;}
 .cal-day.today{border:2px solid var(--green);color:var(--green);font-weight:700;}
 .cal-day.today.has-workout{color:#fff;}
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
@@ -309,7 +311,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
           <button class="btn-outline" style="flex:1;" onclick="startCardio('run')">Run</button>
         </div>
         <!-- Start Workout full width -->
-        <button class="btn-primary" style="width:100%;margin-top:4px;" onclick="startWorkout()">Start Workout</button>
+        <button class="btn-primary" style="width:100%;margin-top:4px;" onclick="openWorkoutPicker()">Start Workout</button>
         <!-- Routine buttons side by side -->
         <div style="display:flex;gap:10px;">
           <button class="btn-outline" style="flex:1;" onclick="openTemplates()">Start Routine</button>
@@ -381,6 +383,18 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
       <div class="cal-grid" id="cal-days"></div>
     </div>
     <div id="cal-detail" style="margin-top:8px;"></div>
+    <div id="plan-modal" style="display:none;margin-top:12px;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-size:15px;font-weight:700;" id="plan-modal-date"></div>
+          <button class="btn-ghost" onclick="closePlanModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <div id="plan-existing" style="margin-bottom:4px;"></div>
+        <div class="section-title" style="margin-top:8px;">Select routine</div>
+        <div id="plan-routine-list" style="margin-bottom:10px;"></div>
+        <button class="btn-green" style="width:100%;" onclick="savePlan()">Add to plan</button>
+      </div>
+    </div>
   </div>
 
   <!-- NUTRITION -->
@@ -492,7 +506,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 <div class="tab-bar">
   <button class="tab active" onclick="switchTab('log','وحش')"><i class="ti ti-barbell" aria-hidden="true"></i><span>Log</span></button>
   <button class="tab" onclick="switchTab('history','History')"><i class="ti ti-history" aria-hidden="true"></i><span>History</span></button>
-  <button class="tab" onclick="switchTab('calendar','Calendar')"><i class="ti ti-calendar" aria-hidden="true"></i><span>Calendar</span></button>
+  <button class="tab" onclick="switchTab('calendar','Plan')"><i class="ti ti-calendar" aria-hidden="true"></i><span>Plan</span></button>
   <button class="tab" onclick="switchTab('nutrition','Nutrition')"><i class="ti ti-salad" aria-hidden="true"></i><span>Nutrition</span></button>
   <button class="tab" onclick="switchTab('measurements','Body')"><i class="ti ti-ruler" aria-hidden="true"></i><span>Body</span></button>
   <button class="tab" onclick="switchTab('stats','Stats')"><i class="ti ti-chart-bar" aria-hidden="true"></i><span>Stats</span></button>
@@ -509,6 +523,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <input class="ex-search" id="ex-search" placeholder="Search exercises..." oninput="filterExercises(this.value)" style="margin-bottom:10px;"/>
     <div id="ex-filter-tabs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:2px;">
       <button class="ex-tab active" onclick="setExTab('All',this)">All</button>
+      <button class="ex-tab" onclick="setExTab('Favourites',this)">❤️ Favourites</button>
       <button class="ex-tab" onclick="setExTab('Chest',this)">Chest</button>
       <button class="ex-tab" onclick="setExTab('Back',this)">Back</button>
       <button class="ex-tab" onclick="setExTab('Legs',this)">Legs</button>
@@ -537,6 +552,80 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
   </div>
 </div>
 
+<!-- Routine preview modal -->
+<div class="modal-overlay" id="preview-modal">
+  <div class="modal-box" style="padding-bottom:calc(80px + env(safe-area-inset-bottom));">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div class="modal-title" id="preview-routine-name">Routine</div>
+      <button class="btn-ghost" onclick="closePreviewModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <!-- Selected exercises list -->
+    <div id="preview-exercises" style="margin-bottom:12px;"></div>
+    <!-- Search & tabs to add more -->
+    <div class="section-title" style="margin-top:4px;">Add exercises</div>
+    <input class="ex-search" id="preview-ex-search" placeholder="Search exercises..." oninput="filterPreviewExercises(this.value)" style="margin-bottom:8px;"/>
+    <div id="preview-ex-tabs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:4px;">
+      <button class="ex-tab active" onclick="setPreviewTab('All',this)">All</button>
+      <button class="ex-tab" onclick="setPreviewTab('Favourites',this)">❤️ Favourites</button>
+      <button class="ex-tab" onclick="setPreviewTab('Chest',this)">Chest</button>
+      <button class="ex-tab" onclick="setPreviewTab('Back',this)">Back</button>
+      <button class="ex-tab" onclick="setPreviewTab('Legs',this)">Legs</button>
+      <button class="ex-tab" onclick="setPreviewTab('Shoulders',this)">Shoulders</button>
+      <button class="ex-tab" onclick="setPreviewTab('Arms',this)">Arms</button>
+      <button class="ex-tab" onclick="setPreviewTab('Core',this)">Core</button>
+      <button class="ex-tab" onclick="setPreviewTab('Cardio',this)">Cardio</button>
+      <button class="ex-tab" onclick="setPreviewEqTab('Barbell',this)">Barbell</button>
+      <button class="ex-tab" onclick="setPreviewEqTab('Dumbbell',this)">Dumbbell</button>
+      <button class="ex-tab" onclick="setPreviewEqTab('Machine',this)">Machine</button>
+      <button class="ex-tab" onclick="setPreviewEqTab('Cable',this)">Cable</button>
+      <button class="ex-tab" onclick="setPreviewEqTab('Bodyweight',this)">Bodyweight</button>
+    </div>
+    <div id="preview-ex-options" style="max-height:240px;overflow-y:auto;margin-bottom:8px;"></div>
+    <!-- Sticky start bar -->
+    <div style="position:sticky;bottom:0;background:var(--bg);padding:12px 0 0;border-top:1px solid var(--border);">
+      <button class="btn-primary" style="width:100%;" onclick="startFromPreview()">Start Workout</button>
+    </div>
+  </div>
+</div>
+
+<!-- Workout picker modal -->
+<div class="modal-overlay" id="workout-picker-modal">
+  <div class="modal-box" style="padding-bottom:calc(80px + env(safe-area-inset-bottom));">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div class="modal-title">New Workout</div>
+      <button class="btn-ghost" onclick="closeWorkoutPicker()"><i class="ti ti-x"></i></button>
+    </div>
+    <!-- Workout name -->
+    <input class="ex-search" id="picker-workout-name" placeholder="Workout name (optional)" style="margin-bottom:10px;"/>
+    <!-- Selected exercises -->
+    <div id="picker-exercises" style="margin-bottom:10px;"></div>
+    <!-- Tabs + search -->
+    <div class="section-title" style="margin-top:2px;">Add exercises</div>
+    <input class="ex-search" id="picker-ex-search" placeholder="Search exercises..." oninput="filterPickerExercises(this.value)" style="margin-bottom:8px;"/>
+    <div id="picker-ex-tabs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:4px;">
+      <button class="ex-tab active" onclick="setPickerTab('All',this)">All</button>
+      <button class="ex-tab" onclick="setPickerTab('Favourites',this)">❤️ Favourites</button>
+      <button class="ex-tab" onclick="setPickerTab('Chest',this)">Chest</button>
+      <button class="ex-tab" onclick="setPickerTab('Back',this)">Back</button>
+      <button class="ex-tab" onclick="setPickerTab('Legs',this)">Legs</button>
+      <button class="ex-tab" onclick="setPickerTab('Shoulders',this)">Shoulders</button>
+      <button class="ex-tab" onclick="setPickerTab('Arms',this)">Arms</button>
+      <button class="ex-tab" onclick="setPickerTab('Core',this)">Core</button>
+      <button class="ex-tab" onclick="setPickerTab('Cardio',this)">Cardio</button>
+      <button class="ex-tab" onclick="setPickerEqTab('Barbell',this)">Barbell</button>
+      <button class="ex-tab" onclick="setPickerEqTab('Dumbbell',this)">Dumbbell</button>
+      <button class="ex-tab" onclick="setPickerEqTab('Machine',this)">Machine</button>
+      <button class="ex-tab" onclick="setPickerEqTab('Cable',this)">Cable</button>
+      <button class="ex-tab" onclick="setPickerEqTab('Bodyweight',this)">Bodyweight</button>
+    </div>
+    <div id="picker-ex-options" style="max-height:240px;overflow-y:auto;margin-bottom:8px;"></div>
+    <!-- Start button -->
+    <div style="position:sticky;bottom:0;background:var(--bg);padding:12px 0 0;border-top:1px solid var(--border);">
+      <button class="btn-primary" style="width:100%;" onclick="startFromPicker()">Start Workout</button>
+    </div>
+  </div>
+</div>
+
 <!-- Build routine modal -->
 <div class="modal-overlay" id="build-modal">
   <div class="modal-box" style="padding-bottom:calc(80px + env(safe-area-inset-bottom));position:relative;">
@@ -553,6 +642,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <input class="ex-search" id="routine-ex-search" placeholder="Search exercises..." oninput="filterRoutineExercises(this.value)" style="margin-bottom:8px;"/>
     <div id="routine-ex-tabs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:4px;">
       <button class="ex-tab active" onclick="setRoutineTab('All',this)">All</button>
+      <button class="ex-tab" onclick="setRoutineTab('Favourites',this)">❤️ Favourites</button>
       <button class="ex-tab" onclick="setRoutineTab('Chest',this)">Chest</button>
       <button class="ex-tab" onclick="setRoutineTab('Back',this)">Back</button>
       <button class="ex-tab" onclick="setRoutineTab('Legs',this)">Legs</button>
@@ -1018,17 +1108,37 @@ function setExEqTab(eq,btn){
   btn.classList.add("active");
   filterExercises(document.getElementById("ex-search").value||"");
 }
+function getFavourites(){return JSON.parse(localStorage.getItem("wahsh_favs")||"[]");}
+function saveFavourites(f){localStorage.setItem("wahsh_favs",JSON.stringify(f));}
+function toggleFavourite(name,e){
+  e.stopPropagation();
+  const favs=getFavourites();
+  const idx=favs.indexOf(name);
+  if(idx>-1) favs.splice(idx,1);
+  else favs.push(name);
+  saveFavourites(favs);
+  filterExercises(document.getElementById("ex-search").value||"");
+}
+
 function filterExercises(q){
   let f=[...DB];
-  if(exTabMuscle) f=f.filter(e=>e.muscle===exTabMuscle);
+  const favs=getFavourites();
+  if(exTabMuscle==="Favourites") f=f.filter(e=>favs.includes(e.name));
+  else if(exTabMuscle) f=f.filter(e=>e.muscle===exTabMuscle);
   if(exTabEq) f=f.filter(e=>e.eq===exTabEq);
   if(q) f=f.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())||e.muscle.toLowerCase().includes(q.toLowerCase()));
   f.sort((a,b)=>a.name.localeCompare(b.name));
-  document.getElementById("ex-options").innerHTML=f.map(ex=>`
-    <div class="ex-option" onclick="addExercise('${ex.name.replace(/'/g,"\\'")}','${ex.muscle}','${ex.eq}')">
-      <div><div style="font-size:14px;font-weight:600;">${ex.name}</div><div style="font-size:11px;color:var(--text2);margin-top:2px;">${ex.muscle} · ${ex.eq}</div></div>
+  const el=document.getElementById("ex-options");
+  if(!el)return;
+  el.innerHTML=f.length?f.map(ex=>{
+    const isFav=favs.includes(ex.name);
+    return `<div class="ex-option" onclick="addExercise('${ex.name.replace(/'/g,"\\'")}','${ex.muscle}','${ex.eq}')">
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;">${ex.name}</div><div style="font-size:11px;color:var(--text2);margin-top:2px;">${ex.muscle} · ${ex.eq}</div></div>
+      <button onclick="event.stopPropagation();toggleFavourite('${ex.name.replace(/'/g,"\\'")}',event);filterExercises(document.getElementById('ex-search').value||'')" style="background:none;border:none;padding:6px;cursor:pointer;font-size:18px;flex-shrink:0;line-height:1;">${isFav?"❤️":"🤍"}</button>
       <i class="ti ti-plus" style="color:var(--green);font-size:18px;flex-shrink:0;"></i>
-    </div>`).join("")||'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No results</div>';
+    </div>`;
+  }).join("")
+  :(exTabMuscle==="Favourites"?'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No favourites yet — tap 🤍 to add</div>':'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No results</div>');
 }
 
 function addExercise(name,muscle,eq){
@@ -1275,6 +1385,9 @@ function renderSilhouette(){
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────────
+function getPlans(){return JSON.parse(localStorage.getItem("wahsh_plans")||"{}");}
+function savePlans(p){localStorage.setItem("wahsh_plans",JSON.stringify(p));}
+
 function renderCalendar(){
   const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
   document.getElementById("cal-month-label").textContent=months[calMonth]+" "+calYear;
@@ -1283,26 +1396,95 @@ function renderCalendar(){
   const daysIn=new Date(calYear,calMonth+1,0).getDate();
   const todayStr=today();
   const workoutDays=new Set(workouts.map(w=>w.date.slice(0,10)));
+  const plans=getPlans();
   let html="";
   for(let i=0;i<first;i++)html+="<div></div>";
   for(let d=1;d<=daysIn;d++){
     const ds=calYear+"-"+String(calMonth+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
-    html+=`<button class="cal-day ${workoutDays.has(ds)?"has-workout":""} ${ds===todayStr?"today":""}" onclick="showCalDay('${ds}')">${d}</button>`;
+    const done=workoutDays.has(ds);
+    const planned=plans[ds]&&plans[ds].length>0;
+    const cls=["cal-day",done?"has-workout":"",planned?"planned":"",ds===todayStr?"today":""].filter(Boolean).join(" ");
+    html+=`<button class="${cls}" onclick="showCalDay('${ds}')">${d}</button>`;
   }
   document.getElementById("cal-days").innerHTML=html;
   document.getElementById("cal-detail").innerHTML="";
+  document.getElementById("plan-modal").style.display="none";
 }
 
 function showCalDay(ds){
   const ws=workouts.filter(w=>w.date.slice(0,10)===ds);
-  const c=document.getElementById("cal-detail");
-  if(!ws.length){c.innerHTML=`<div style="color:var(--text2);font-size:13px;text-align:center;padding:14px;">Rest day 😴</div>`;return;}
-  c.innerHTML=ws.map(w=>{
+  const det=document.getElementById("cal-detail");
+  det.innerHTML=ws.length?ws.map(w=>{
     const dur=Math.round(w.duration/60);
     const isCardio=w.type==="cardio";
     const vol=!isCardio?(w.exercises||[]).reduce((a,ex)=>a+(ex.sets||[]).reduce((b,s)=>b+(parseFloat(s.weight)||0)*(parseInt(s.reps)||0),0),0):0;
-    return`<div class="card"><div class="history-title">${w.name}</div><div class="history-meta">${dur} min${isCardio?" · "+(w.steps||0).toLocaleString()+" steps":" · "+Math.round(toDisplay(vol))+unitLabel()}</div><div style="margin-top:8px;">${(w.exercises||[]).map(e=>`<span class="tag">${e.name}</span>`).join("")}</div></div>`;
-  }).join("");
+    return`<div class="card"><div class="history-title">✅ ${w.name}</div><div class="history-meta">${dur} min${isCardio?" · "+(w.steps||0).toLocaleString()+" steps":" · "+Math.round(toDisplay(vol))+unitLabel()}</div><div style="margin-top:8px;">${(w.exercises||[]).map(e=>`<span class="tag">${e.name}</span>`).join("")}</div></div>`;
+  }).join(""):"";
+
+  // Show plan UI
+  const planEl=document.getElementById("plan-modal");
+  planEl.style.display="block";
+  const d=new Date(ds+"T12:00:00");
+  document.getElementById("plan-modal-date").textContent=d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"});
+
+  // Show existing plans
+  const plans=getPlans();
+  const dayPlans=plans[ds]||[];
+  const existEl=document.getElementById("plan-existing");
+  existEl.innerHTML=dayPlans.length
+    ?'<div class="section-title">Planned</div>'
+      +dayPlans.map((p,i)=>`<div class="ex-row">
+        <span style="font-size:14px;font-weight:500;">📋 ${p}</span>
+        <button class="btn-ghost" onclick="removePlan('${ds}',${i})"><i class="ti ti-x" style="font-size:16px;"></i></button>
+      </div>`).join("")
+    :"";
+
+  // Populate routine picker
+  const all=getAllTemplates();
+  const quickItems=["Walk","Run",...all.map(t=>t.name)];
+  document.getElementById("plan-routine-list").innerHTML=
+    quickItems.map(name=>`<button class="pill" style="margin-bottom:6px;" onclick="selectPlanRoutine('${name.replace(/'/g,"\\'")}',this)">${name}</button>`).join(" ");
+
+  // Store selected date
+  planSelectedDate=ds;
+  planSelectedName="";
+}
+
+function closePlanModal(){
+  document.getElementById("plan-modal").style.display="none";
+  document.getElementById("cal-detail").innerHTML="";
+  planSelectedDate="";
+  planSelectedName="";
+}
+
+let planSelectedDate="", planSelectedName="";
+
+function selectPlanRoutine(name,btn){
+  document.querySelectorAll("#plan-routine-list .pill").forEach(b=>b.classList.remove("selected"));
+  btn.classList.add("selected");
+  planSelectedName=name;
+}
+
+function savePlan(){
+  if(!planSelectedDate){showToast("Tap a date first");return;}
+  if(!planSelectedName){showToast("Select a routine first");return;}
+  const plans=getPlans();
+  if(!plans[planSelectedDate]) plans[planSelectedDate]=[];
+  if(!plans[planSelectedDate].includes(planSelectedName)) plans[planSelectedDate].push(planSelectedName);
+  savePlans(plans);
+  planSelectedName="";
+  document.querySelectorAll("#plan-routine-list .pill").forEach(b=>b.classList.remove("selected"));
+  renderCalendar();
+  showCalDay(planSelectedDate);
+  showToast("Planned ✓");
+}
+
+function removePlan(ds,i){
+  const plans=getPlans();
+  if(plans[ds]) plans[ds].splice(i,1);
+  savePlans(plans);
+  renderCalendar();
+  showCalDay(ds);
 }
 
 function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
@@ -1460,118 +1642,266 @@ function closeTemplateModal(){document.getElementById("template-modal").classLis
 
 function renderTemplateList(){
   const all=getAllTemplates();
-  document.getElementById("template-list").innerHTML=all.map((t,i)=>`
+  const el=document.getElementById("template-list");
+  el.innerHTML=all.map((t,i)=>`
     <div style="position:relative;overflow:hidden;border-bottom:1px solid var(--border);">
-      <div style="position:absolute;right:0;top:0;bottom:0;width:80px;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;">
+      <div style="position:absolute;right:0;top:0;bottom:0;width:80px;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;z-index:0;">
         <i class="ti ti-trash"></i>
       </div>
-      <div class="drag-item" id="tmpl-${i}" draggable="true"
-        ondragstart="tmplDragStart(${i})"
-        ondragover="tmplDragOver(event,${i})"
-        ondrop="tmplDrop(event,${i})"
-        ondragend="tmplDragEnd()"
-        style="padding:12px 4px;background:var(--bg);position:relative;z-index:1;touch-action:pan-y;transition:transform 0.2s ease;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <i class="ti ti-grip-vertical drag-handle" style="flex-shrink:0;"></i>
-        <div style="flex:1;min-width:0;cursor:pointer;" onclick="useTemplate(${i})">
+      <div id="tmpl-${i}" style="display:flex;align-items:center;background:var(--bg);position:relative;z-index:1;padding:12px 0;">
+        <div id="tmpl-handle-${i}" style="padding:12px 10px 12px 4px;cursor:grab;color:var(--text3);font-size:22px;flex-shrink:0;">
+          <i class="ti ti-grip-vertical"></i>
+        </div>
+        <div style="flex:1;min-width:0;padding-right:8px;" id="tmpl-tap-${i}">
           <div class="template-name">${t.name}</div>
           <div class="template-meta">${t.exercises.length} exercises${t.builtin?" · Built-in":""}</div>
         </div>
-        <button class="btn-ghost" style="padding:6px;flex-shrink:0;"
-          onclick="event.stopPropagation();showTemplateMenu(${i},this)">
-          <i class="ti ti-dots-vertical" style="font-size:18px;"></i>
+        <button class="btn-ghost" style="padding:10px 10px;flex-shrink:0;"
+          id="tmpl-menu-${i}">
+          <i class="ti ti-dots-vertical" style="font-size:20px;"></i>
         </button>
-      </div>
       </div>
     </div>`).join("");
 
-  // Attach swipe-to-delete on template items
-  setTimeout(()=>{
-    all.forEach((_,i)=>{
-      const card=document.getElementById("tmpl-"+i);
-      if(!card)return;
-      let sx=0,dx=0;
-      card.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;dx=0;},{passive:true});
-      card.addEventListener("touchmove",e=>{
-        dx=e.touches[0].clientX-sx;
-        if(dx<0)card.style.transform=`translateX(${Math.max(dx,-80)}px)`;
-      },{passive:true});
-      card.addEventListener("touchend",()=>{
-        if(dx<-60){deleteTemplate(i);}
-        else{card.style.transform="";}
-      });
+  // Attach listeners after render
+  all.forEach((_,i)=>{
+    // Tap on name area → open preview
+    const tapArea=document.getElementById("tmpl-tap-"+i);
+    if(tapArea) tapArea.addEventListener("click",()=>useTemplate(i));
+
+    // 3-dot menu
+    const menuBtn=document.getElementById("tmpl-menu-"+i);
+    if(menuBtn) menuBtn.addEventListener("click",(e)=>{e.stopPropagation();showTemplateMenu(i,menuBtn);});
+
+    // Swipe left to delete
+    const card=document.getElementById("tmpl-"+i);
+    if(!card)return;
+    let sx=0,dx=0,moved=false;
+    card.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;dx=0;moved=false;},{passive:true});
+    card.addEventListener("touchmove",e=>{
+      dx=e.touches[0].clientX-sx;
+      if(Math.abs(dx)>8){moved=true;}
+      if(dx<0) card.style.transform=`translateX(${Math.max(dx,-80)}px)`;
+    },{passive:true});
+    card.addEventListener("touchend",()=>{
+      if(moved&&dx<-60) deleteTemplate(i);
+      else card.style.transform="";
     });
-  },50);
-}
+  });
 
-// Drag reorder for templates
-let tmplDragIdx=null;
-function tmplDragStart(i){tmplDragIdx=i;setTimeout(()=>{const el=document.getElementById("tmpl-"+i);if(el)el.classList.add("dragging");},0);}
-function tmplDragOver(e,i){e.preventDefault();}
-function tmplDrop(e,i){
-  e.preventDefault();
-  if(tmplDragIdx===null||tmplDragIdx===i)return;
-  const all=getAllTemplates();
-  const moved=all.splice(tmplDragIdx,1)[0];
-  all.splice(i,0,moved);
-  saveAllTemplates(all);
-  tmplDragIdx=null;
-  renderTemplateList();
-}
-function tmplDragEnd(){tmplDragIdx=null;document.querySelectorAll(".drag-item").forEach(el=>el.classList.remove("dragging"));}
-
-function showTemplateMenu(i,btn){
-  document.querySelectorAll(".template-menu").forEach(m=>m.remove());
-  const menu=document.createElement("div");
-  menu.className="template-menu";
-  menu.style.cssText="position:fixed;background:var(--bg);border:1px solid var(--border2);border-radius:12px;box-shadow:var(--shadow-lg);z-index:400;padding:6px;min-width:160px;";
-  menu.innerHTML=`
-    <button onclick="renameTemplate(${i})" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:14px;cursor:pointer;border-radius:8px;color:var(--text);font-family:inherit;">
-      <i class="ti ti-pencil" style="margin-right:8px;"></i>Rename
-    </button>`;
-  const rect=btn.getBoundingClientRect();
-  menu.style.top=(rect.bottom+4)+"px";
-  menu.style.right=(window.innerWidth-rect.right)+"px";
-  document.body.appendChild(menu);
-  setTimeout(()=>document.addEventListener("click",()=>menu.remove(),{once:true}),10);
-}
-
-function renameTemplate(i){
-  document.querySelectorAll(".template-menu").forEach(m=>m.remove());
-  const all=getAllTemplates();
-  const newName=prompt("Rename routine:",all[i].name);
-  if(newName&&newName.trim()){
-    all[i].name=newName.trim();
-    saveAllTemplates(all);
-    // Sync back to customTemplates if custom
-    if(!all[i].builtin){
-      const ci=customTemplates.findIndex(t=>t.name===all[i].name||true);
-      customTemplates=all.filter(t=>!t.builtin);
-      saveTmpls();
+  // Touch drag reorder via handle
+  let dragI=null,startY=0;
+  all.forEach((_,i)=>{
+    const handle=document.getElementById("tmpl-handle-"+i);
+    if(!handle)return;
+    handle.addEventListener("touchstart",e=>{
+      e.preventDefault();
+      dragI=i; startY=e.touches[0].clientY;
+      const card=document.getElementById("tmpl-"+dragI);
+      if(card){card.style.opacity="0.5";}
+    },{passive:false});
+  });
+  el.addEventListener("touchmove",e=>{
+    if(dragI===null)return;
+    e.preventDefault();
+    const dy=e.touches[0].clientY-startY;
+    const card=document.getElementById("tmpl-"+dragI);
+    if(card) card.style.transform=`translateY(${dy}px)`;
+  },{passive:false});
+  el.addEventListener("touchend",e=>{
+    if(dragI===null)return;
+    const endY=e.changedTouches[0].clientY;
+    const all2=getAllTemplates();
+    const cards=el.querySelectorAll("[id^='tmpl-']:not([id*='handle']):not([id*='tap']):not([id*='menu'])");
+    let targetI=dragI;
+    cards.forEach((card,idx)=>{
+      const r=card.getBoundingClientRect();
+      if(endY>=r.top&&endY<=r.bottom) targetI=idx;
+    });
+    const dragCard=document.getElementById("tmpl-"+dragI);
+    if(dragCard){dragCard.style.opacity="";dragCard.style.transform="";}
+    if(targetI!==dragI){
+      const moved2=all2.splice(dragI,1)[0];
+      all2.splice(targetI,0,moved2);
+      saveAllTemplates(all2);
+      renderTemplateList();
     }
-    renderTemplateList();showToast("Renamed ✓");
-  }
+    dragI=null;
+  });
 }
 
-function deleteTemplate(i){
-  document.querySelectorAll(".template-menu").forEach(m=>m.remove());
-  const all=getAllTemplates();
-  const t=all[i];
-  if(!confirm("Delete \""+t.name+"\"?"))return;
-  all.splice(i,1);
-  saveAllTemplates(all);
-  customTemplates=all.filter(t=>!t.builtin);
-  saveTmpls();
-  renderTemplateList();showToast("Deleted");
-}
+function tmplDragStart(){}
+function tmplDragOver(e){e.preventDefault();}
+function tmplDrop(){}
+function tmplDragEnd(){}
+
+
+let previewExercises=[], previewRoutineName="", previewTabMuscle=null, previewTabEq=null;
 
 function useTemplate(i){
   const all=getAllTemplates();
   const t=all[i];
   if(!t)return;
   closeTemplateModal();
-  startWorkout(t.exercises);
-  document.getElementById("workout-name").value=t.name;
+  previewRoutineName=t.name;
+  previewExercises=[...t.exercises];
+  previewTabMuscle=null; previewTabEq=null;
+  document.getElementById("preview-routine-name").textContent=t.name;
+  document.getElementById("preview-ex-search").value="";
+  document.getElementById("preview-modal").classList.add("open");
+  setTimeout(()=>{
+    renderPreviewExercises();
+    document.querySelectorAll("#preview-ex-tabs .ex-tab").forEach((b,i)=>b.classList.toggle("active",i===0));
+    filterPreviewExercises("");
+  },50);
+}
+
+function closePreviewModal(){document.getElementById("preview-modal").classList.remove("open");}
+
+function renderPreviewExercises(){
+  const el=document.getElementById("preview-exercises");
+  if(!previewExercises.length){el.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0;">No exercises yet — add from the list below.</div>';return;}
+  el.innerHTML='<div class="section-title">Exercises in this workout</div>'
+    +previewExercises.map((name,i)=>`
+      <div class="drag-item">
+        <span style="font-size:14px;font-weight:500;flex:1;">${name}</span>
+        <button class="btn-ghost" style="padding:4px;" onclick="previewExercises.splice(${i},1);renderPreviewExercises();filterPreviewExercises(document.getElementById('preview-ex-search').value)">
+          <i class="ti ti-x" style="font-size:16px;"></i>
+        </button>
+      </div>`).join("");
+}
+
+function setPreviewTab(muscle,btn){
+  previewTabMuscle=muscle==="All"?null:muscle; previewTabEq=null;
+  document.querySelectorAll("#preview-ex-tabs .ex-tab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  filterPreviewExercises(document.getElementById("preview-ex-search").value||"");
+}
+
+function setPreviewEqTab(eq,btn){
+  previewTabEq=eq; previewTabMuscle=null;
+  document.querySelectorAll("#preview-ex-tabs .ex-tab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  filterPreviewExercises(document.getElementById("preview-ex-search").value||"");
+}
+
+function filterPreviewExercises(q){
+  let f=[...DB];
+  const favs=getFavourites();
+  if(previewTabMuscle==="Favourites") f=f.filter(e=>favs.includes(e.name));
+  else if(previewTabMuscle) f=f.filter(e=>e.muscle===previewTabMuscle);
+  if(previewTabEq) f=f.filter(e=>e.eq===previewTabEq);
+  if(q) f=f.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())||e.muscle.toLowerCase().includes(q.toLowerCase()));
+  f.sort((a,b)=>a.name.localeCompare(b.name));
+  const el=document.getElementById("preview-ex-options");
+  if(!el)return;
+  el.innerHTML=f.length?f.map(ex=>{
+    const isFav=favs.includes(ex.name);
+    const added=previewExercises.includes(ex.name);
+    return `<div class="ex-option" onclick="togglePreviewExercise('${ex.name.replace(/'/g,"\\'")}','${ex.muscle}','${ex.eq}')" style="${added?'background:var(--green2);':''}">
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;">${ex.name}</div><div style="font-size:11px;color:var(--text2);margin-top:2px;">${ex.muscle} · ${ex.eq}</div></div>
+      <button onclick="event.stopPropagation();toggleFavourite('${ex.name.replace(/'/g,"\\'")}',event);filterPreviewExercises(document.getElementById('preview-ex-search').value||'')" style="background:none;border:none;padding:6px;cursor:pointer;font-size:18px;flex-shrink:0;line-height:1;">${isFav?"❤️":"🤍"}</button>
+      <i class="ti ti-${added?"check-circle":"plus"}" style="color:var(--green);font-size:18px;flex-shrink:0;"></i>
+    </div>`;
+  }).join("")
+  :(previewTabMuscle==="Favourites"?'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No favourites yet — tap 🤍 to add</div>':'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No results</div>');
+}
+
+function togglePreviewExercise(name){
+  const idx=previewExercises.indexOf(name);
+  if(idx>-1) previewExercises.splice(idx,1);
+  else previewExercises.push(name);
+  renderPreviewExercises();
+  filterPreviewExercises(document.getElementById("preview-ex-search").value||"");
+}
+
+function startFromPreview(){
+  if(!previewExercises.length){showToast("Add at least one exercise");return;}
+  closePreviewModal();
+  startWorkout(previewExercises);
+  document.getElementById("workout-name").value=previewRoutineName;
+}
+
+let pickerExercises=[], pickerTabMuscle=null, pickerTabEq=null;
+
+function openWorkoutPicker(){
+  pickerExercises=[];
+  pickerTabMuscle=null; pickerTabEq=null;
+  document.getElementById("picker-workout-name").value="";
+  document.getElementById("picker-ex-search").value="";
+  document.getElementById("workout-picker-modal").classList.add("open");
+  setTimeout(()=>{
+    renderPickerExercises();
+    document.querySelectorAll("#picker-ex-tabs .ex-tab").forEach((b,i)=>b.classList.toggle("active",i===0));
+    filterPickerExercises("");
+  },50);
+}
+
+function closeWorkoutPicker(){document.getElementById("workout-picker-modal").classList.remove("open");}
+
+function renderPickerExercises(){
+  const el=document.getElementById("picker-exercises");
+  if(!pickerExercises.length){el.innerHTML="";return;}
+  el.innerHTML='<div class="section-title">Selected</div>'
+    +pickerExercises.map((name,i)=>`
+      <div class="drag-item">
+        <span style="font-size:14px;font-weight:500;flex:1;">${name}</span>
+        <button class="btn-ghost" style="padding:4px;" onclick="pickerExercises.splice(${i},1);renderPickerExercises();filterPickerExercises(document.getElementById('picker-ex-search').value)">
+          <i class="ti ti-x" style="font-size:16px;"></i>
+        </button>
+      </div>`).join("");
+}
+
+function setPickerTab(muscle,btn){
+  pickerTabMuscle=muscle==="All"?null:muscle; pickerTabEq=null;
+  document.querySelectorAll("#picker-ex-tabs .ex-tab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  filterPickerExercises(document.getElementById("picker-ex-search").value||"");
+}
+
+function setPickerEqTab(eq,btn){
+  pickerTabEq=eq; pickerTabMuscle=null;
+  document.querySelectorAll("#picker-ex-tabs .ex-tab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  filterPickerExercises(document.getElementById("picker-ex-search").value||"");
+}
+
+function filterPickerExercises(q){
+  let f=[...DB];
+  const favs=getFavourites();
+  if(pickerTabMuscle==="Favourites") f=f.filter(e=>favs.includes(e.name));
+  else if(pickerTabMuscle) f=f.filter(e=>e.muscle===pickerTabMuscle);
+  if(pickerTabEq) f=f.filter(e=>e.eq===pickerTabEq);
+  if(q) f=f.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())||e.muscle.toLowerCase().includes(q.toLowerCase()));
+  f.sort((a,b)=>a.name.localeCompare(b.name));
+  const el=document.getElementById("picker-ex-options");
+  if(!el)return;
+  el.innerHTML=f.length?f.map(ex=>{
+    const isFav=favs.includes(ex.name);
+    const added=pickerExercises.includes(ex.name);
+    return `<div class="ex-option" onclick="togglePickerExercise('${ex.name.replace(/'/g,"\\'")}','${ex.muscle}','${ex.eq}')" style="${added?'background:var(--green2);':''}">
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;">${ex.name}</div><div style="font-size:11px;color:var(--text2);margin-top:2px;">${ex.muscle} · ${ex.eq}</div></div>
+      <button onclick="event.stopPropagation();toggleFavourite('${ex.name.replace(/'/g,"\\'")}',event);filterPickerExercises(document.getElementById('picker-ex-search').value||'')" style="background:none;border:none;padding:6px;cursor:pointer;font-size:18px;flex-shrink:0;line-height:1;">${isFav?"❤️":"🤍"}</button>
+      <i class="ti ti-${added?"check-circle":"plus"}" style="color:var(--green);font-size:18px;flex-shrink:0;"></i>
+    </div>`;
+  }).join("")
+  :(pickerTabMuscle==="Favourites"?'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No favourites yet — tap 🤍 to add</div>':'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No results</div>');
+}
+
+function togglePickerExercise(name){
+  const idx=pickerExercises.indexOf(name);
+  if(idx>-1) pickerExercises.splice(idx,1);
+  else pickerExercises.push(name);
+  renderPickerExercises();
+  filterPickerExercises(document.getElementById("picker-ex-search").value||"");
+}
+
+function startFromPicker(){
+  if(!pickerExercises.length){showToast("Add at least one exercise");return;}
+  const name=document.getElementById("picker-workout-name").value.trim();
+  closeWorkoutPicker();
+  startWorkout(pickerExercises);
+  document.getElementById("workout-name").value=name||"Workout";
 }
 
 function openBuildRoutine(){
@@ -1644,19 +1974,24 @@ function setRoutineEqTab(eq,btn){
 }
 function filterRoutineExercises(q){
   let f=[...DB];
-  if(routineTabMuscle) f=f.filter(e=>e.muscle===routineTabMuscle);
+  const favs=getFavourites();
+  if(routineTabMuscle==="Favourites") f=f.filter(e=>favs.includes(e.name));
+  else if(routineTabMuscle) f=f.filter(e=>e.muscle===routineTabMuscle);
   if(routineTabEq) f=f.filter(e=>e.eq===routineTabEq);
   if(q) f=f.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())||e.muscle.toLowerCase().includes(q.toLowerCase()));
   f.sort((a,b)=>a.name.localeCompare(b.name));
   const el=document.getElementById("routine-ex-options");
   if(!el)return;
-  el.innerHTML=f.map(ex=>{
+  el.innerHTML=f.length?f.map(ex=>{
+    const isFav=favs.includes(ex.name);
     const added=routineExercises.includes(ex.name);
-    return `<div class="ex-option" onclick="toggleRoutineExercise('${ex.name.replace(/'/g,"\\'")}','${ex.muscle}','${ex.eq}')" style="${added?"background:var(--green2);":""}">
-      <div><div style="font-size:14px;font-weight:600;">${ex.name}</div><div style="font-size:11px;color:var(--text2);margin-top:2px;">${ex.muscle} · ${ex.eq}</div></div>
-      <i class="ti ti-${added?"check-circle":"plus"}" style="color:${added?"var(--green)":"var(--green)"};font-size:18px;flex-shrink:0;"></i>
+    return `<div class="ex-option" onclick="toggleRoutineExercise('${ex.name.replace(/'/g,"\\'")}','${ex.muscle}','${ex.eq}')" style="${added?'background:var(--green2);':''}">
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;">${ex.name}</div><div style="font-size:11px;color:var(--text2);margin-top:2px;">${ex.muscle} · ${ex.eq}</div></div>
+      <button onclick="event.stopPropagation();toggleFavourite('${ex.name.replace(/'/g,"\\'")}',event);filterRoutineExercises(document.getElementById('routine-ex-search').value||'')" style="background:none;border:none;padding:6px;cursor:pointer;font-size:18px;flex-shrink:0;line-height:1;">${isFav?"❤️":"🤍"}</button>
+      <i class="ti ti-${added?"check-circle":"plus"}" style="color:var(--green);font-size:18px;flex-shrink:0;"></i>
     </div>`;
-  }).join("")||'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No results</div>';
+  }).join("")
+  :(routineTabMuscle==="Favourites"?'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No favourites yet — tap 🤍 to add</div>':'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No results</div>');
 }
 
 function toggleRoutineExercise(name,muscle,eq){
