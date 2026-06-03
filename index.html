@@ -29,8 +29,8 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;}
-.app{max-width:480px;margin:0 auto;padding-bottom:calc(80px + env(safe-area-inset-bottom));}
-.screen{display:none;padding:16px;}
+.app{max-width:480px;margin:0 auto;padding-bottom:calc(80px + env(safe-area-inset-bottom));overflow-x:hidden;}
+.screen{display:none;padding:16px;overflow-x:hidden;max-width:100%;}
 .screen.active{display:block;animation:screenIn 0.25s cubic-bezier(0.4,0,0.2,1) both;}
 @keyframes screenIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 
@@ -196,11 +196,11 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .goal-pill:active{transform:scale(0.96);}
 
 /* BODY - condensed */
-.body-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
-.body-field{background:var(--bg2);border-radius:var(--rsm);padding:10px;border:1px solid var(--border);}
+.body-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;width:100%;max-width:100%;}
+.body-field{background:var(--bg2);border-radius:var(--rsm);padding:10px;border:1px solid var(--border);min-width:0;overflow:hidden;}
 .body-field label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;}
 .body-field-row{display:flex;align-items:center;gap:4px;}
-.meas-input-sm{flex:1;background:none;border:none;font-size:15px;font-weight:600;color:var(--text);padding:0;min-width:0;}
+.meas-input-sm{width:100%;background:none;border:none;font-size:15px;font-weight:600;color:var(--text);padding:0;min-width:0;max-width:100%;}
 .meas-input-sm:focus{outline:none;}
 .meas-unit-sm{font-size:11px;color:var(--text3);font-weight:500;}
 .meas-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:10px 0;border-bottom:1px solid var(--border);}
@@ -550,8 +550,23 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <div id="routine-exercises" style="margin-bottom:12px;"></div>
     <!-- Inline exercise search -->
     <div class="section-title" style="margin-top:4px;">Add exercises</div>
-    <input class="ex-search" id="routine-ex-search" placeholder="Search by name or muscle..." oninput="filterRoutineExercises(this.value)" style="margin-bottom:8px;"/>
-    <div id="routine-ex-options" style="max-height:300px;overflow-y:auto;"></div>
+    <input class="ex-search" id="routine-ex-search" placeholder="Search exercises..." oninput="filterRoutineExercises(this.value)" style="margin-bottom:8px;"/>
+    <div id="routine-ex-tabs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:4px;">
+      <button class="ex-tab active" onclick="setRoutineTab('All',this)">All</button>
+      <button class="ex-tab" onclick="setRoutineTab('Chest',this)">Chest</button>
+      <button class="ex-tab" onclick="setRoutineTab('Back',this)">Back</button>
+      <button class="ex-tab" onclick="setRoutineTab('Legs',this)">Legs</button>
+      <button class="ex-tab" onclick="setRoutineTab('Shoulders',this)">Shoulders</button>
+      <button class="ex-tab" onclick="setRoutineTab('Arms',this)">Arms</button>
+      <button class="ex-tab" onclick="setRoutineTab('Core',this)">Core</button>
+      <button class="ex-tab" onclick="setRoutineTab('Cardio',this)">Cardio</button>
+      <button class="ex-tab" onclick="setRoutineEqTab('Barbell',this)">Barbell</button>
+      <button class="ex-tab" onclick="setRoutineEqTab('Dumbbell',this)">Dumbbell</button>
+      <button class="ex-tab" onclick="setRoutineEqTab('Machine',this)">Machine</button>
+      <button class="ex-tab" onclick="setRoutineEqTab('Cable',this)">Cable</button>
+      <button class="ex-tab" onclick="setRoutineEqTab('Bodyweight',this)">Bodyweight</button>
+    </div>
+    <div id="routine-ex-options" style="max-height:260px;overflow-y:auto;"></div>
     <!-- Floating save bar (shown when exercises > 0) -->
     <div id="routine-save-bar" style="display:none;position:sticky;bottom:0;left:0;right:0;background:var(--bg);padding:12px 0 0;border-top:1px solid var(--border);display:flex;gap:8px;margin-top:8px;">
       <button class="btn-outline" style="flex:1;" onclick="saveRoutine()">Save only</button>
@@ -1382,34 +1397,25 @@ function renderPRs(){
   const entries=Object.entries(prs).filter(([,v])=>v.kg>0);
   const el=document.getElementById("pr-list");
   if(!entries.length){el.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0;">No records yet. Complete some workouts first.</div>';return;}
-
-  // Header row
-  const header=`<div style="display:flex;align-items:center;padding:8px 14px 6px;gap:8px;">
+  const header=`<div style="display:flex;padding:8px 14px 6px;gap:4px;">
     <div style="flex:1;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;">Exercise</div>
-    <div style="width:70px;text-align:center;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;">Best set</div>
-    <div style="width:70px;text-align:center;font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;">Est. 1RM</div>
+    <div style="width:72px;text-align:right;font-size:10px;font-weight:700;color:#f5a623;text-transform:uppercase;letter-spacing:0.06em;">PR</div>
+    <div style="width:72px;text-align:right;font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;">1RM</div>
   </div>`;
-
   const rows=entries.map(([name,{kg,reps}],i)=>{
     const orm=reps===1?kg:Math.round(kg*(1+reps/30)*10)/10;
     const display=toDisplay(kg);
     const orm1=toDisplay(orm);
     const bg=i%2===0?"background:var(--bg2);":"";
-    return `<div style="display:flex;align-items:center;padding:11px 14px;gap:8px;${bg}">
+    return `<div style="display:flex;align-items:center;padding:10px 14px;gap:4px;${bg}">
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:1px;">${display}${unitLabel()} × ${reps} rep${reps>1?"s":""}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:1px;">${reps} rep${reps>1?"s":""}</div>
       </div>
-      <div style="width:70px;text-align:center;">
-        <span class="pr-badge">PR</span>
-        <div style="font-size:13px;font-weight:700;margin-top:3px;">${display}${unitLabel()}</div>
-      </div>
-      <div style="width:70px;text-align:center;">
-        <div style="font-size:13px;font-weight:700;color:var(--green);">${orm1}${unitLabel()}</div>
-      </div>
+      <div style="width:72px;text-align:right;font-size:14px;font-weight:700;color:#f5a623;">${display}<span style="font-size:10px;font-weight:500;">${unitLabel()}</span></div>
+      <div style="width:72px;text-align:right;font-size:14px;font-weight:700;color:var(--green);">${orm1}<span style="font-size:10px;font-weight:500;">${unitLabel()}</span></div>
     </div>`;
   }).join("");
-
   el.innerHTML=`<div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden;">${header}<div style="height:1px;background:var(--border);"></div>${rows}</div>`;
 }
 
@@ -1443,18 +1449,58 @@ function openTemplates(){document.getElementById("template-modal").classList.add
 function closeTemplateModal(){document.getElementById("template-modal").classList.remove("open");}
 
 function renderTemplateList(){
-  const all=[...PREBUILT_TEMPLATES.map(t=>({...t,builtin:true})),...customTemplates.map(t=>({...t,builtin:false}))];
+  const builtin=PREBUILT_TEMPLATES.map(t=>({...t,builtin:true}));
+  const custom=customTemplates.map((t,i)=>({...t,builtin:false,customIdx:i}));
+  const all=[...builtin,...custom];
   document.getElementById("template-list").innerHTML=all.map((t,i)=>`
-    <div class="template-card" onclick="useTemplate(${i})">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div>
+    <div class="template-card" style="position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:center;" onclick="useTemplate(${i})">
+        <div style="flex:1;min-width:0;">
           <div class="template-name">${t.name}</div>
-          <div class="template-meta">${t.exercises.length} exercises</div>
-          <div style="margin-top:6px;">${t.tag?`<span class="tag">${t.tag}</span>`:""}</div>
+          <div class="template-meta">${t.exercises.length} exercises${t.builtin?" · Built-in":""}</div>
         </div>
-        <i class="ti ti-player-play" style="color:var(--green);font-size:22px;"></i>
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${!t.builtin?`<button class="btn-ghost" style="padding:6px;" onclick="event.stopPropagation();showTemplateMenu(${t.customIdx},this)"><i class="ti ti-dots-vertical" style="font-size:18px;"></i></button>`:""}
+          <i class="ti ti-player-play" style="color:var(--green);font-size:20px;"></i>
+        </div>
       </div>
     </div>`).join("");
+}
+
+function showTemplateMenu(customIdx,btn){
+  // Remove existing menu
+  document.querySelectorAll(".template-menu").forEach(m=>m.remove());
+  const menu=document.createElement("div");
+  menu.className="template-menu";
+  menu.style.cssText="position:fixed;background:var(--bg);border:1px solid var(--border2);border-radius:12px;box-shadow:var(--shadow-lg);z-index:400;padding:6px;min-width:160px;";
+  menu.innerHTML=`
+    <button onclick="renameTemplate(${customIdx})" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:14px;cursor:pointer;border-radius:8px;color:var(--text);">
+      <i class="ti ti-pencil" style="margin-right:8px;"></i>Rename
+    </button>
+    <button onclick="deleteTemplate(${customIdx})" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:14px;cursor:pointer;border-radius:8px;color:var(--red);">
+      <i class="ti ti-trash" style="margin-right:8px;"></i>Delete
+    </button>`;
+  const rect=btn.getBoundingClientRect();
+  menu.style.top=(rect.bottom+4)+"px";
+  menu.style.right=(window.innerWidth-rect.right)+"px";
+  document.body.appendChild(menu);
+  setTimeout(()=>document.addEventListener("click",()=>menu.remove(),{once:true}),10);
+}
+
+function renameTemplate(customIdx){
+  document.querySelectorAll(".template-menu").forEach(m=>m.remove());
+  const t=customTemplates[customIdx];
+  const newName=prompt("Rename routine:",t.name);
+  if(newName&&newName.trim()){
+    customTemplates[customIdx].name=newName.trim();
+    saveTmpls();renderTemplateList();showToast("Renamed ✓");
+  }
+}
+
+function deleteTemplate(customIdx){
+  document.querySelectorAll(".template-menu").forEach(m=>m.remove());
+  customTemplates.splice(customIdx,1);
+  saveTmpls();renderTemplateList();showToast("Routine deleted");
 }
 
 function useTemplate(i){
@@ -1465,10 +1511,12 @@ function useTemplate(i){
 
 function openBuildRoutine(){
   routineExercises=[];
+  routineTabMuscle=null;routineTabEq=null;
   document.getElementById("routine-name").value="";
   document.getElementById("build-modal").classList.add("open");
   setTimeout(()=>{
     renderRoutineExercises();
+    document.querySelectorAll("#routine-ex-tabs .ex-tab").forEach((b,i)=>b.classList.toggle("active",i===0));
     filterRoutineExercises("");
   },50);
 }
@@ -1516,15 +1564,32 @@ function dragEnd(){
   document.querySelectorAll(".drag-item").forEach(el=>el.classList.remove("dragging"));
 }
 
+let routineTabMuscle=null,routineTabEq=null;
+function setRoutineTab(muscle,btn){
+  routineTabMuscle=muscle==="All"?null:muscle; routineTabEq=null;
+  document.querySelectorAll("#routine-ex-tabs .ex-tab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  filterRoutineExercises(document.getElementById("routine-ex-search").value||"");
+}
+function setRoutineEqTab(eq,btn){
+  routineTabEq=eq; routineTabMuscle=null;
+  document.querySelectorAll("#routine-ex-tabs .ex-tab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  filterRoutineExercises(document.getElementById("routine-ex-search").value||"");
+}
 function filterRoutineExercises(q){
-  const f=DB.filter(e=>e.name.toLowerCase().includes((q||"").toLowerCase())||e.muscle.toLowerCase().includes((q||"").toLowerCase()));
+  let f=[...DB];
+  if(routineTabMuscle) f=f.filter(e=>e.muscle===routineTabMuscle);
+  if(routineTabEq) f=f.filter(e=>e.eq===routineTabEq);
+  if(q) f=f.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())||e.muscle.toLowerCase().includes(q.toLowerCase()));
+  f.sort((a,b)=>a.name.localeCompare(b.name));
   const el=document.getElementById("routine-ex-options");
   if(!el)return;
   el.innerHTML=f.map(ex=>{
     const added=routineExercises.includes(ex.name);
-    return `<div class="ex-option" onclick="toggleRoutineExercise('${ex.name.replace(/'/g,"\\'")}','${ex.muscle}','${ex.eq}')" style="${added?'opacity:0.5;':''}">
+    return `<div class="ex-option" onclick="toggleRoutineExercise('${ex.name.replace(/'/g,"\\'")}','${ex.muscle}','${ex.eq}')" style="${added?"background:var(--green2);":""}">
       <div><div style="font-size:14px;font-weight:600;">${ex.name}</div><div style="font-size:11px;color:var(--text2);margin-top:2px;">${ex.muscle} · ${ex.eq}</div></div>
-      <i class="ti ti-${added?'check':'plus'}" style="color:${added?'var(--text3)':'var(--green)'};font-size:18px;flex-shrink:0;"></i>
+      <i class="ti ti-${added?"check-circle":"plus"}" style="color:${added?"var(--green)":"var(--green)"};font-size:18px;flex-shrink:0;"></i>
     </div>`;
   }).join("")||'<div style="color:var(--text2);padding:16px;font-size:13px;text-align:center;">No results</div>';
 }
